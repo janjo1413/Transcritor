@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Transcritor Local</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <p class="eyebrow">Transcricao local</p>
+        <h1>Audio e video para texto, rodando na sua maquina.</h1>
+        <p class="subtitle">
+          O app converte a midia com FFmpeg, transcreve com faster-whisper e salva
+          <code>.txt</code>, <code>.srt</code> e <code>.json</code> localmente.
+        </p>
+      </section>
+
+      <section class="panel">
+        <form id="transcription-form" class="form">
+          <div class="field field-wide">
+            <span>Arquivo de audio ou video</span>
+            <label id="drop-zone" class="drop-zone" for="media-file">
+              <input id="media-file" name="media_file" type="file" required />
+              <strong id="drop-zone-title">Clique para escolher ou solte o arquivo aqui</strong>
+              <small>
+                Aceita audio e video. O sistema usa FFmpeg para extrair e normalizar o audio antes da
+                transcricao.
+              </small>
+              <span id="selected-file" class="selected-file">Nenhum arquivo selecionado.</span>
+            </label>
+          </div>
+
+          <div class="field auto-mode">
+            <span>Tipo de transcricao</span>
+            <div class="auto-pill">Automatico</div>
+          </div>
+
+          <label class="field">
+            <span>Pasta de saida</span>
+            <input
+              id="output-dir"
+              name="output_dir"
+              type="text"
+              value="{{ default_output_dir }}"
+              placeholder="/caminho/para/salvar"
+            />
+          </label>
+
+          <button id="submit-button" type="submit">Transcrever</button>
+        </form>
+
+        <div class="progress-panel" aria-live="polite">
+          <div class="progress-meta">
+            <span>Progresso</span>
+            <strong id="progress-label">0%</strong>
+          </div>
+          <div class="progress-track">
+            <div id="progress-bar" class="progress-bar"></div>
+          </div>
+        </div>
+
+        <div id="status-box" class="status-box muted">
+          Selecione um arquivo e inicie a transcricao.
+        </div>
+      </section>
+
+      <section class="panel results">
+        <div class="results-header">
+          <h2>Resultado</h2>
+          <div id="output-files" class="output-files"></div>
+        </div>
+        <textarea id="transcription-output" readonly placeholder="A transcricao vai aparecer aqui."></textarea>
+      </section>
+    </main>
+
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>
