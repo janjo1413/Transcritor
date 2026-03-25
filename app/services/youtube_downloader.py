@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
+
+from app.services.media_converter import resolve_binary_path
+from yt_dlp import DownloadError, YoutubeDL
 
 
 YOUTUBE_HOST_FRAGMENTS = (
@@ -34,24 +36,38 @@ def download_youtube_audio(url: str, destination_dir: Path, output_stem: str) ->
     if not yt_dlp_path:
         raise RuntimeError("yt-dlp nao encontrado. Instale a dependencia e tente novamente.")
 
+    ffmpeg_path = resolve_binary_path("ffmpeg")
+    if not ffmpeg_path:
+        raise RuntimeError("FFmpeg nao encontrado. Instale o ffmpeg e tente novamente.")
+
     destination_dir.mkdir(parents=True, exist_ok=True)
     output_template = destination_dir / f"{output_stem}.%(ext)s"
 
-    command = [
-        yt_dlp_path,
-        "--no-playlist",
-        "--extract-audio",
-        "--audio-format",
-        "mp3",
-        "--output",
-        str(output_template),
-        url,
-    ]
+    options = {
+        "paths": {"home": str(destination_dir)},
+        "outtmpl": {"default": str(output_template)},
+        "noplaylist": True,
+        "format": "bestaudio/best",
+        "quiet": True,
+        "no_warnings": False,
+        "ffmpeg_location": str(Path(ffmpeg_path).parent),
+        "postprocessors": [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "192",
+            }
+        ],
+    }
 
-    process = subprocess.run(command, capture_output=True, text=True, check=False)
-    if process.returncode != 0:
-        error_output = process.stderr.strip() or process.stdout.strip() or "Falha ao baixar o audio do YouTube."
-        raise RuntimeError(f"Erro no download do YouTube: {error_output}")
+    try:
+        with YoutubeDL(options) as downloader:
+            downloader.download([url])
+    except DownloadError as exc:
+        detail = str(exc).strip() or "Falha ao baixar o audio do YouTube."
+        raise RuntimeError(f"Erro no download do YouTube: {detail}") from exc
+    except Exception as exc:
+        raise RuntimeError(f"Erro ao executar yt-dlp: {exc}") from exc
 
     matches = sorted(destination_dir.glob(f"{output_stem}.*"))
     for candidate in matches:
@@ -66,12 +82,20 @@ def resolve_yt_dlp_path() -> str | None:
     if system_path:
         return system_path
 
-    venv_candidate = Path(sys.executable).resolve().parent / "yt-dlp"
-    if venv_candidate.exists():
-        return str(venv_candidate)
+    scripts_dir = Path(sys.executable).resolve().parent
+    for candidate_name in ("yt-dlp", "yt-dlp.exe"):
+        venv_candidate = scripts_dir / candidate_name
+        if venv_candidate.exists():
+            return str(venv_candidate)
 
-    project_candidate = Path(__file__).resolve().parents[2] / ".venv" / "bin" / "yt-dlp"
-    if project_candidate.exists():
-        return str(project_candidate)
+    project_root = Path(__file__).resolve().parents[2]
+    for relative_path in (
+        Path(".venv") / "Scripts" / "yt-dlp.exe",
+        Path(".venv") / "Scripts" / "yt-dlp",
+        Path(".venv") / "bin" / "yt-dlp",
+    ):
+        project_candidate = project_root / relative_path
+        if project_candidate.exists():
+            return str(project_candidate)
 
     return None

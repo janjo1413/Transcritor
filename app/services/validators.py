@@ -52,14 +52,3 @@ def validate_transcription_source(media_file: UploadFile | None, youtube_url: st
             status_code=400,
             detail="Envie um arquivo ou um link do YouTube. Escolha apenas uma fonte por vez.",
         )
-
-
-def validate_summary_files(uploads: list[UploadFile] | None) -> list[UploadFile]:
-    files = [upload for upload in (uploads or []) if upload and upload.filename]
-    for upload in files:
-        upload.file.seek(0, 2)
-        size = upload.file.tell()
-        upload.file.seek(0)
-        if size > MAX_FILE_SIZE:
-            raise HTTPException(status_code=400, detail=f"Anexo muito grande: {upload.filename}")
-    return files

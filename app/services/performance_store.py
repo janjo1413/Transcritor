@@ -42,36 +42,6 @@ def record_transcription_run(
         _write_history(history)
 
 
-def estimate_ollama_seconds(model: str, transcript_chars: int, context_strategy: str = "full") -> float | None:
-    history = _load_history()
-    key = f"{model}:{context_strategy}"
-    samples = history.get("ollama", {}).get(key, [])
-    if not samples or transcript_chars <= 0:
-        return None
-
-    avg_ratio = sum(samples) / len(samples)
-    return round(avg_ratio * transcript_chars, 1)
-
-
-def record_ollama_run(
-    model: str,
-    context_strategy: str,
-    transcript_chars: int,
-    elapsed_seconds: float,
-) -> None:
-    if transcript_chars <= 0 or elapsed_seconds <= 0:
-        return
-
-    ratio = elapsed_seconds / transcript_chars
-    with _LOCK:
-        history = _load_history()
-        key = f"{model}:{context_strategy}"
-        samples = history.setdefault("ollama", {}).setdefault(key, [])
-        samples.append(ratio)
-        history["ollama"][key] = samples[-MAX_SAMPLES:]
-        _write_history(history)
-
-
 def _load_history() -> dict:
     ensure_runtime_directories()
     if not PERFORMANCE_HISTORY_PATH.exists():

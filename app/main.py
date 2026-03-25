@@ -1,12 +1,10 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from dotenv import load_dotenv
 
 from app.routes import router
 from app.services.file_manager import ensure_runtime_directories
 
 
-load_dotenv()
 ensure_runtime_directories()
 
 app = FastAPI(

@@ -2,7 +2,6 @@ const form = document.getElementById("transcription-form");
 const submitButton = document.getElementById("submit-button");
 const statusBox = document.getElementById("status-box");
 const output = document.getElementById("transcription-output");
-const summaryOutput = document.getElementById("summary-output");
 const outputFiles = document.getElementById("output-files");
 const mediaFileInput = document.getElementById("media-file");
 const youtubeUrlInput = document.getElementById("youtube-url");
@@ -12,7 +11,6 @@ const dropZone = document.getElementById("drop-zone");
 const selectedFile = document.getElementById("selected-file");
 const progressBar = document.getElementById("progress-bar");
 const progressLabel = document.getElementById("progress-label");
-const summaryFilesInput = document.getElementById("summary-files");
 
 function formatSeconds(value) {
   const totalSeconds = Math.max(0, Math.round(value || 0));
@@ -58,30 +56,6 @@ function renderFiles(files) {
     tag.textContent = `${label}: ${path}`;
     outputFiles.appendChild(tag);
   });
-}
-
-function formatSummaryStatus(payload, transcriptionSeconds) {
-  const warnings = payload.summary_warning;
-  const warningsText = Array.isArray(warnings) && warnings.length
-    ? `\nAvisos: ${warnings.join(" | ")}`
-    : "";
-  const contextStrategy = payload.summary?.context_strategy || "desconhecida";
-  const modelStrategy = payload.summary?.model_strategy || "desconhecida";
-  const ollamaMetrics = payload.timings?.ollama_metrics || {};
-  const promptEvalCount = ollamaMetrics.prompt_eval_count ?? "?";
-
-  return (
-    `Resposta do Ollama concluida.\n` +
-    `Provider: ${payload.summary?.provider || "ollama"}\n` +
-    `Modelo: ${payload.summary?.model || "padrao"}\n` +
-    `Selecao de modelo: ${modelStrategy}\n` +
-    `Contexto: ${contextStrategy}\n` +
-    `Tokens de prompt: ${promptEvalCount}\n` +
-    `Transcricao: ${transcriptionSeconds || 0}s\n` +
-    `Prompt: ${payload.timings?.summary_seconds || 0}s\n` +
-    `Saida: ${payload.output_dir}` +
-    warningsText
-  );
 }
 
 function updateSelectedFileLabel() {
@@ -159,40 +133,6 @@ function uploadWithProgress(formData) {
   });
 }
 
-function startSummaryJob({ sourceName, outputDir, transcriptText, summaryPrompt, summaryModel, summaryFiles }) {
-  return new Promise((resolve, reject) => {
-    const request = new XMLHttpRequest();
-    request.open("POST", "/summarize");
-    request.responseType = "json";
-    const formData = new FormData();
-
-    formData.append("source_name", sourceName);
-    formData.append("output_dir", outputDir);
-    formData.append("transcript_text", transcriptText);
-    formData.append("summary_prompt", summaryPrompt);
-    formData.append("summary_model", summaryModel || "");
-
-    Array.from(summaryFiles || []).forEach((file) => {
-      formData.append("summary_files", file);
-    });
-
-    request.addEventListener("load", () => {
-      const payload = request.response || {};
-      if (request.status >= 200 && request.status < 300) {
-        resolve(payload);
-        return;
-      }
-      reject(new Error(payload.detail || "Falha ao iniciar o resumo."));
-    });
-
-    request.addEventListener("error", () => {
-      reject(new Error("Falha de conexao com o servidor local durante o resumo."));
-    });
-
-    request.send(formData);
-  });
-}
-
 async function pollJob(jobId) {
   while (true) {
     const response = await fetch(`/jobs/${jobId}`);
@@ -252,7 +192,6 @@ form.addEventListener("submit", async (event) => {
 
   submitButton.disabled = true;
   output.value = "";
-  summaryOutput.value = "";
   outputFiles.innerHTML = "";
   setStatus(
     getSelectedSourceType() === "file"
@@ -280,28 +219,6 @@ form.addEventListener("submit", async (event) => {
     setStatus(
       `Transcricao concluida.\nArquivo: ${payload.filename}\nModelo: ${payload.model}\nModo detectado: ${payload.transcription_mode || "automatico"}\nProcessamento: ${payload.device.toUpperCase()}\nFonte: ${payload.source_type}\nCache: ${payload.timings?.cache_hit ? "transcricao" : payload.timings?.download_cache_hit ? "audio" : "nao"}\nTempo total: ${payload.timings?.total_seconds || 0}s\nSaida: ${payload.output_dir}`
     );
-
-      const summaryPrompt = document.getElementById("summary-prompt").value.trim();
-      const summaryModel = document.getElementById("summary-model").value.trim();
-      const summaryFiles = Array.from(summaryFilesInput.files || []);
-
-      if (summaryPrompt) {
-        setProgress(0);
-      setStatus("Transcricao pronta. Enviando prompt para o Ollama em segunda etapa.");
-      const summarySubmission = await startSummaryJob({
-        sourceName: payload.filename,
-        outputDir: payload.output_dir,
-        transcriptText: payload.text || "",
-        summaryPrompt,
-        summaryModel,
-        summaryFiles,
-      });
-      const summaryPayload = await pollJob(summarySubmission.job_id);
-      summaryOutput.value = summaryPayload.summary?.text || "";
-      renderFiles({ ...(payload.files || {}), ...(summaryPayload.files || {}) });
-      setProgress(100);
-      setStatus(formatSummaryStatus(summaryPayload, payload.timings?.total_seconds || 0));
-    }
   } catch (error) {
     setStatus(error.message || "Ocorreu um erro durante a transcricao.");
   } finally {

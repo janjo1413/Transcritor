@@ -1,7 +1,7 @@
 import threading
 from time import perf_counter
 from pathlib import Path
-from typing import Callable, Any
+from typing import Any, Callable
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
@@ -13,26 +13,20 @@ from app.services.cache_store import (
     save_cached_transcript,
     save_youtube_audio,
 )
-from app.services.exporter import export_text_artifact, export_transcription
+from app.services.exporter import export_transcription
 from app.services.file_manager import (
-    INPUT_DIR,
-    TEMP_DIR,
     JobPaths,
     create_job_paths,
     remove_directory_if_exists,
 )
 from app.services.job_store import complete_job, create_job, fail_job, get_job, update_job
 from app.services.media_converter import convert_to_wav
-from app.services.ollama_prompt import OllamaProviderError, run_prompt_with_ollama
 from app.services.performance_store import (
-    estimate_ollama_seconds,
     estimate_transcription_seconds,
-    record_ollama_run,
     record_transcription_run,
 )
 from app.services.transcriber import transcribe_file
 from app.services.validators import (
-    validate_summary_files,
     validate_transcription_source,
     validate_upload,
 )
@@ -266,85 +260,6 @@ def run_transcription_job(
         remove_directory_if_exists(job_paths.temp_dir)
 
 
-def run_summary_job(
-    job_id: str,
-    source_name: str,
-    output_dir: str,
-    transcript_text: str,
-    summary_prompt: str,
-    summary_model: str = "",
-    summary_attachment_paths: list[Path] | None = None,
-) -> None:
-    started_at = perf_counter()
-    try:
-        update_job(job_id, progress=12, status="running", message="Etapa 1/3: preparando contexto local para o Ollama.")
-        estimated_ollama_seconds = estimate_ollama_seconds(
-            model=summary_model or "default",
-            transcript_chars=len(transcript_text or ""),
-            context_strategy="full",
-        )
-        update_job(
-            job_id,
-            progress=24,
-            status="running",
-            message=(
-                "Etapa 2/3: processando prompt no Ollama."
-                + (
-                    f" ETA aprox.: {int(estimated_ollama_seconds)}s."
-                    if estimated_ollama_seconds
-                    else " Transcricoes longas podem levar mais tempo."
-                )
-            ),
-        )
-        response_result = run_with_heartbeat(
-            job_id,
-            progress=24,
-            start_message="Etapa 2/3: enviando contexto para o Ollama.",
-            heartbeat_message="Etapa 2/3: Ollama ainda esta processando o prompt.",
-            action=lambda: run_prompt_with_ollama(
-                transcript_text=transcript_text,
-                user_prompt=summary_prompt,
-                attachment_paths=summary_attachment_paths or [],
-                model=summary_model or None,
-            ),
-        )
-
-        update_job(job_id, progress=92, status="running", message="Etapa 3/3: salvando resposta do Ollama.")
-        response_path = export_text_artifact(
-            text=response_result["text"],
-            original_name=source_name,
-            destination_dir=Path(output_dir),
-            suffix="resposta_ollama",
-        )
-        complete_job(
-            job_id,
-            {
-                "summary": response_result,
-                "summary_warning": response_result.get("warnings"),
-                "summary_used_fallback": False,
-                "files": {"ollama_response": response_path},
-                "timings": {
-                    "summary_seconds": round(perf_counter() - started_at, 2),
-                    "ollama_metrics": response_result.get("metrics"),
-                },
-                "output_dir": str(Path(output_dir).resolve()),
-            },
-        )
-        record_ollama_run(
-            model=response_result.get("model", summary_model or "default"),
-            context_strategy=response_result.get("context_strategy", "full"),
-            transcript_chars=len(transcript_text or ""),
-            elapsed_seconds=round(perf_counter() - started_at, 2),
-        )
-    except OllamaProviderError as exc:
-        fail_job(job_id, str(exc))
-    except Exception as exc:
-        fail_job(job_id, f"Falha ao executar prompt no Ollama: {exc}")
-    finally:
-        remove_directory_if_exists(INPUT_DIR / job_id)
-        remove_directory_if_exists(TEMP_DIR / job_id)
-
-
 @router.post("/transcribe")
 async def transcribe_media(
     media_file: UploadFile | None = File(None),
@@ -383,46 +298,6 @@ async def transcribe_media(
             args=(job_paths.job_id, source_path.name if source_path else "", job_paths),
             kwargs={
                 "youtube_url": normalized_youtube_url,
-            },
-            daemon=True,
-        )
-        worker.start()
-        return {
-            "job_id": job_paths.job_id,
-            "filename": source_name,
-            "status": "queued",
-        }
-    except Exception as exc:
-        remove_directory_if_exists(job_paths.input_dir)
-        remove_directory_if_exists(job_paths.temp_dir)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-
-
-@router.post("/summarize")
-async def summarize_transcription(
-    source_name: str = Form(...),
-    output_dir: str = Form(...),
-    transcript_text: str = Form(...),
-    summary_prompt: str = Form(...),
-    summary_model: str = Form(""),
-    summary_files: list[UploadFile] | None = File(None),
-) -> dict:
-    attachments = validate_summary_files(summary_files)
-    job_paths = create_job_paths(output_dir, isolate_output_dir=False)
-
-    try:
-        create_job(job_paths.job_id, source_name)
-        update_job(job_paths.job_id, progress=5, message="Resumo solicitado. Aguardando processamento.")
-        saved_attachment_paths = [
-            job_paths.save_attachment(upload, index)
-            for index, upload in enumerate(attachments, start=1)
-        ]
-        worker = threading.Thread(
-            target=run_summary_job,
-            args=(job_paths.job_id, source_name, output_dir, transcript_text, summary_prompt),
-            kwargs={
-                "summary_model": summary_model,
-                "summary_attachment_paths": saved_attachment_paths,
             },
             daemon=True,
         )

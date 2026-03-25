@@ -32,6 +32,12 @@ def update_job(job_id: str, **fields: object) -> None:
         if job_id not in _JOBS:
             return
         now = time()
+        if "progress" in fields:
+            current_progress = _JOBS[job_id].get("progress", 0)
+            try:
+                fields["progress"] = max(int(current_progress), int(fields["progress"]))  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                fields.pop("progress", None)
         fields["updated_at"] = now
         if "message" in fields:
             fields["last_message_at"] = now

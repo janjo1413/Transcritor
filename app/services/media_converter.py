@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 
 def convert_to_wav(source_path: Path, output_path: Path) -> Path:
-    ffmpeg_path = shutil.which("ffmpeg")
+    ffmpeg_path = resolve_binary_path("ffmpeg")
     if not ffmpeg_path:
         raise RuntimeError("FFmpeg nao encontrado. Instale o ffmpeg e tente novamente.")
 
@@ -34,7 +35,7 @@ def convert_to_wav(source_path: Path, output_path: Path) -> Path:
 
 
 def get_media_duration(source_path: Path) -> float:
-    ffprobe_path = shutil.which("ffprobe")
+    ffprobe_path = resolve_binary_path("ffprobe")
     if not ffprobe_path:
         raise RuntimeError("FFprobe nao encontrado. Instale o ffmpeg completo e tente novamente.")
 
@@ -57,7 +58,7 @@ def get_media_duration(source_path: Path) -> float:
 
 
 def split_audio_chunks(source_path: Path, temp_dir: Path, chunk_seconds: int = 120) -> list[Path]:
-    ffmpeg_path = shutil.which("ffmpeg")
+    ffmpeg_path = resolve_binary_path("ffmpeg")
     if not ffmpeg_path:
         raise RuntimeError("FFmpeg nao encontrado. Instale o ffmpeg e tente novamente.")
 
@@ -89,3 +90,25 @@ def split_audio_chunks(source_path: Path, temp_dir: Path, chunk_seconds: int = 1
         raise RuntimeError("Nenhum bloco foi criado a partir do audio normalizado.")
 
     return chunk_paths
+
+
+def resolve_binary_path(binary_name: str) -> str | None:
+    system_path = shutil.which(binary_name)
+    if system_path:
+        return system_path
+
+    scripts_dir = Path(sys.executable).resolve().parent
+    for candidate_name in (binary_name, f"{binary_name}.exe"):
+        local_candidate = scripts_dir / candidate_name
+        if local_candidate.exists():
+            return str(local_candidate)
+
+    ffmpeg_root = Path.home() / "AppData" / "Local" / "Microsoft" / "WinGet" / "Packages"
+    winget_matches = sorted(ffmpeg_root.glob("Gyan.FFmpeg_*\\ffmpeg-*-full_build\\bin"))
+    for match in reversed(winget_matches):
+        for candidate_name in (binary_name, f"{binary_name}.exe"):
+            candidate = match / candidate_name
+            if candidate.exists():
+                return str(candidate)
+
+    return None

@@ -85,35 +85,6 @@
             />
           </label>
 
-          <label class="field field-wide">
-            <span>Prompt livre com Ollama</span>
-            <textarea
-              id="summary-prompt"
-              name="summary_prompt"
-              rows="6"
-              placeholder="Ex.: transforme em ata, responda perguntas sobre a transcricao, extraia insights, monte checklist ou siga qualquer instrucao."
-            ></textarea>
-            <small class="field-hint">
-              Se o prompt estiver vazio, o job termina na transcricao. Se estiver preenchido, o app envia a
-              transcricao e os anexos para o Ollama local apos concluir a transcricao.
-            </small>
-          </label>
-
-          <label class="field">
-            <span>Modelo Ollama</span>
-            <input
-              id="summary-model"
-              name="summary_model"
-              type="text"
-              placeholder="llama3.2:3b"
-            />
-          </label>
-
-          <label class="field">
-            <span>Anexos para o prompt</span>
-            <input id="summary-files" name="summary_files" type="file" multiple />
-          </label>
-
           <button id="submit-button" type="submit">Transcrever</button>
         </form>
 
@@ -138,7 +109,6 @@
           <div id="output-files" class="output-files"></div>
         </div>
         <textarea id="transcription-output" readonly placeholder="A transcricao vai aparecer aqui."></textarea>
-        <textarea id="summary-output" readonly placeholder="A resposta do Ollama vai aparecer aqui quando houver prompt."></textarea>
       </section>
     </main>
 

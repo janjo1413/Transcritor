@@ -336,15 +336,6 @@ textarea {
   line-height: 1.5;
 }
 
-#summary-prompt {
-  min-height: 160px;
-}
-
-#summary-output {
-  min-height: 220px;
-  margin-top: 14px;
-}
-
 @media (max-width: 820px) {
   .form {
     grid-template-columns: 1fr;
