@@ -1,59 +1,92 @@
 # Transcritor Local
 
-Aplicacao local para transcrever audio e video em texto usando `FastAPI`, `FFmpeg` e `faster-whisper`.
+Aplicativo local para transformar audio e video em texto no seu proprio computador.
 
-## O que o projeto faz
+## Para que serve
 
-- Aceita arquivos de audio e video enviados pela interface web local
-- Aceita tambem links diretos do YouTube para baixar o audio antes da transcricao
-- Permite selecionar ou arrastar e soltar o arquivo na tela
-- Converte a midia para `wav` mono em `16kHz`
-- Transcreve localmente usando modelos Whisper
-- Divide automaticamente arquivos longos em blocos para processamento paralelo
-- Mostra progresso visual de envio e processamento
-- Detecta automaticamente CPU ou GPU disponivel para a execucao
-- Salva os resultados como `.txt`, `.srt` e `.json` na sua maquina
+Voce pode usar o app para:
 
-## Requisitos
+- transcrever arquivos de audio e video
+- baixar o audio de um video do YouTube e transcrever
+- salvar o resultado em `.txt`, `.srt` e `.json`
 
-- Python 3.11 ou superior
-- `ffmpeg` instalado e disponivel no `PATH`
-- `yt-dlp` instalado no ambiente Python para links do YouTube
+## Como usar a versao pronta
 
-## Instalar dependencias
+1. Baixe a pasta do programa.
+2. Extraia o `.zip`, se ele vier compactado.
+3. Abra a pasta `Transcritor`.
+4. Clique em `Transcritor.exe`.
+5. Aguarde o navegador abrir automaticamente.
+6. Use o app em `http://127.0.0.1:8000`.
+
+## O que o usuario precisa ter no PC
+
+- Windows 64 bits
+- um navegador instalado
+- internet apenas se for usar link do YouTube
+
+Voce nao precisa instalar:
+
+- Python
+- bibliotecas Python
+- FFmpeg
+- yt-dlp
+
+## Como transcrever
+
+### Arquivo do computador
+
+1. Abra o app.
+2. Escolha `Arquivo local`.
+3. Selecione o arquivo ou arraste para a tela.
+4. Clique em `Transcrever`.
+5. Espere o processo terminar.
+
+### Link do YouTube
+
+1. Abra o app.
+2. Escolha `Link do YouTube`.
+3. Cole a URL do video.
+4. Clique em `Transcrever`.
+5. Espere o download e a transcricao terminarem.
+
+## Onde ficam os resultados
+
+Os arquivos gerados ficam na pasta de saida mostrada no app.
+
+Os formatos gerados sao:
+
+- `.txt`: texto simples
+- `.srt`: legenda com tempo
+- `.json`: dados completos da transcricao
+
+## Dicas importantes
+
+- Envie a pasta inteira do app para outra pessoa, nao apenas o `Transcritor.exe`.
+- Se o navegador nao abrir sozinho, acesse manualmente `http://127.0.0.1:8000`.
+- O tempo de transcricao depende do tamanho do arquivo e da potencia do computador.
+- Para links do YouTube, o app precisa de internet.
+
+## Para desenvolvimento
+
+Se voce for rodar o projeto em modo desenvolvimento:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+python run.py
 ```
 
-## Executar o app
+No Windows, voce tambem pode executar `start.bat`.
 
-```bash
-uvicorn app.main:app --reload
+## Gerar a versao distribuivel
+
+Para gerar a pasta pronta para usuario comum:
+
+1. Coloque `ffmpeg.exe`, `ffprobe.exe` e `yt-dlp.exe` na raiz do projeto.
+2. Instale `PyInstaller` no ambiente.
+3. Execute:
+
+```powershell
+.\build.ps1
 ```
 
-Abra `http://127.0.0.1:8000`.
-
-## Estrutura
-
-```text
-app/
-  main.py
-  routes.py
-  services/
-  static/
-  templates/
-input/
-temp/
-output/
-requirements.txt
-```
-
-## Observacoes
-
-- O `faster-whisper` escolhe automaticamente CPU ou GPU quando disponivel
-- Arquivos com mais de 10 minutos sao divididos em blocos para acelerar a transcricao
-- O tempo de processamento depende do tamanho do arquivo e da sua maquina
-- O app aceita os formatos mais comuns de audio e video, desde que o `ffmpeg` consiga abrir o arquivo
+A saida sera criada em `dist/Transcritor/`.

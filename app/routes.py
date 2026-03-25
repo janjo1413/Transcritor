@@ -7,6 +7,7 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
+from app.runtime_paths import templates_dir
 from app.services.cache_store import (
     get_cached_transcript,
     get_cached_youtube_audio,
@@ -34,7 +35,7 @@ from app.services.youtube_downloader import download_youtube_audio, validate_you
 
 
 router = APIRouter()
-templates = Jinja2Templates(directory="app/templates")
+templates = Jinja2Templates(directory=str(templates_dir()))
 
 
 def run_with_heartbeat(

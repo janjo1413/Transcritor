@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from app.runtime_paths import bundled_binary
+
 
 def convert_to_wav(source_path: Path, output_path: Path) -> Path:
     ffmpeg_path = resolve_binary_path("ffmpeg")
@@ -93,6 +95,10 @@ def split_audio_chunks(source_path: Path, temp_dir: Path, chunk_seconds: int = 1
 
 
 def resolve_binary_path(binary_name: str) -> str | None:
+    bundled_path = bundled_binary(binary_name)
+    if bundled_path:
+        return str(bundled_path)
+
     system_path = shutil.which(binary_name)
     if system_path:
         return system_path

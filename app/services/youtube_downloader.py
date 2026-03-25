@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
+from app.runtime_paths import bundled_binary
 from app.services.media_converter import resolve_binary_path
 from yt_dlp import DownloadError, YoutubeDL
 
@@ -78,6 +79,10 @@ def download_youtube_audio(url: str, destination_dir: Path, output_stem: str) ->
 
 
 def resolve_yt_dlp_path() -> str | None:
+    bundled_path = bundled_binary("yt-dlp")
+    if bundled_path:
+        return str(bundled_path)
+
     system_path = shutil.which("yt-dlp")
     if system_path:
         return system_path

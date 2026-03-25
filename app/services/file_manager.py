@@ -6,9 +6,10 @@ from pathlib import Path
 from uuid import uuid4
 
 from fastapi import UploadFile
+from app.runtime_paths import project_root
 
 
-BASE_DIR = Path(__file__).resolve().parents[2]
+BASE_DIR = project_root()
 INPUT_DIR = BASE_DIR / "input"
 TEMP_DIR = BASE_DIR / "temp"
 OUTPUT_DIR = BASE_DIR / "output"

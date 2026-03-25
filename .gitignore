@@ -9,3 +9,10 @@ temp/
 output/
 .local/
 cache/
+.tmp/
+build/
+dist/
+*.spec
+ffmpeg.exe
+ffprobe.exe
+yt-dlp.exe
