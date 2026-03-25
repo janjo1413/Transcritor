@@ -88,13 +88,75 @@ h1 {
   gap: 8px;
 }
 
+.hidden {
+  display: none;
+}
+
 .field span,
 .results-header h2 {
   font-weight: 700;
 }
 
+.field-hint {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.source-panel {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.source-panel-header {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.source-panel-header strong {
+  font-size: 1rem;
+}
+
 .auto-mode {
   justify-content: flex-end;
+}
+
+.source-switch {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.source-option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.source-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.source-option span {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.05);
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.source-option input:checked + span {
+  border-color: #5d95df;
+  background: rgba(29, 79, 145, 0.24);
+  transform: translateY(-1px);
 }
 
 .auto-pill {
@@ -272,6 +334,15 @@ textarea {
   min-height: 360px;
   resize: vertical;
   line-height: 1.5;
+}
+
+#summary-prompt {
+  min-height: 160px;
+}
+
+#summary-output {
+  min-height: 220px;
+  margin-top: 14px;
 }
 
 @media (max-width: 820px) {

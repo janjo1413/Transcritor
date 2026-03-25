@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from threading import Lock
+from time import time
 
 
 _JOBS: dict[str, dict] = {}
@@ -9,6 +10,7 @@ _LOCK = Lock()
 
 
 def create_job(job_id: str, filename: str) -> None:
+    now = time()
     with _LOCK:
         _JOBS[job_id] = {
             "job_id": job_id,
@@ -18,6 +20,10 @@ def create_job(job_id: str, filename: str) -> None:
             "message": "Arquivo recebido.",
             "result": None,
             "error": None,
+            "created_at": now,
+            "updated_at": now,
+            "last_message_at": now,
+            "update_count": 0,
         }
 
 
@@ -25,6 +31,11 @@ def update_job(job_id: str, **fields: object) -> None:
     with _LOCK:
         if job_id not in _JOBS:
             return
+        now = time()
+        fields["updated_at"] = now
+        if "message" in fields:
+            fields["last_message_at"] = now
+        fields["update_count"] = int(_JOBS[job_id].get("update_count", 0)) + 1
         _JOBS[job_id].update(fields)
 
 

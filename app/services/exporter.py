@@ -24,6 +24,15 @@ def export_transcription(transcript: dict, original_name: str, destination_dir: 
     }
 
 
+def export_text_artifact(text: str, original_name: str, destination_dir: Path, suffix: str) -> str:
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    original_stem = Path(original_name).stem if original_name else "transcricao"
+    base_name = f"{sanitize_filename(original_stem)}-{suffix}"
+    output_path = destination_dir / f"{base_name}.md"
+    output_path.write_text(text, encoding="utf-8")
+    return str(output_path.resolve())
+
+
 def build_srt(segments: list[dict]) -> str:
     lines = []
     for index, segment in enumerate(segments, start=1):

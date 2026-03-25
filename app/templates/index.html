@@ -20,7 +20,24 @@
       <section class="panel">
         <form id="transcription-form" class="form">
           <div class="field field-wide">
-            <span>Arquivo de audio ou video</span>
+            <span>Fonte da midia</span>
+            <div class="source-switch" role="radiogroup" aria-label="Fonte da midia">
+              <label class="source-option">
+                <input type="radio" name="source_type" value="file" checked />
+                <span>Arquivo local</span>
+              </label>
+              <label class="source-option">
+                <input type="radio" name="source_type" value="youtube" />
+                <span>Link do YouTube</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="field field-wide source-panel" data-source-panel="file">
+            <div class="source-panel-header">
+              <strong>Modo local</strong>
+              <small class="field-hint">Nenhum upload externo. O arquivo sai da sua maquina direto para o backend local.</small>
+            </div>
             <label id="drop-zone" class="drop-zone" for="media-file">
               <input id="media-file" name="media_file" type="file" required />
               <strong id="drop-zone-title">Clique para escolher ou solte o arquivo aqui</strong>
@@ -32,9 +49,29 @@
             </label>
           </div>
 
+          <div class="field field-wide source-panel hidden" id="youtube-url-field" data-source-panel="youtube">
+            <div class="source-panel-header">
+              <strong>Modo YouTube</strong>
+              <small class="field-hint">Sem upload manual. O backend local baixa o audio do video a partir da URL.</small>
+            </div>
+            <label class="field">
+              <span>URL do YouTube</span>
+              <input
+                id="youtube-url"
+                name="youtube_url"
+                type="url"
+                inputmode="url"
+                placeholder="https://www.youtube.com/watch?v=..."
+              />
+            </label>
+            <small class="field-hint">
+              Requer internet para baixar do YouTube com <code>yt-dlp</code>, mas o processamento continua local.
+            </small>
+          </div>
+
           <div class="field auto-mode">
-            <span>Tipo de transcricao</span>
-            <div class="auto-pill">Automatico</div>
+            <span>Modo de transcricao</span>
+            <div class="auto-pill">Identificacao automatica</div>
           </div>
 
           <label class="field">
@@ -46,6 +83,35 @@
               value="{{ default_output_dir }}"
               placeholder="/caminho/para/salvar"
             />
+          </label>
+
+          <label class="field field-wide">
+            <span>Prompt livre com Ollama</span>
+            <textarea
+              id="summary-prompt"
+              name="summary_prompt"
+              rows="6"
+              placeholder="Ex.: transforme em ata, responda perguntas sobre a transcricao, extraia insights, monte checklist ou siga qualquer instrucao."
+            ></textarea>
+            <small class="field-hint">
+              Se o prompt estiver vazio, o job termina na transcricao. Se estiver preenchido, o app envia a
+              transcricao e os anexos para o Ollama local apos concluir a transcricao.
+            </small>
+          </label>
+
+          <label class="field">
+            <span>Modelo Ollama</span>
+            <input
+              id="summary-model"
+              name="summary_model"
+              type="text"
+              placeholder="llama3.2:3b"
+            />
+          </label>
+
+          <label class="field">
+            <span>Anexos para o prompt</span>
+            <input id="summary-files" name="summary_files" type="file" multiple />
           </label>
 
           <button id="submit-button" type="submit">Transcrever</button>
@@ -72,6 +138,7 @@
           <div id="output-files" class="output-files"></div>
         </div>
         <textarea id="transcription-output" readonly placeholder="A transcricao vai aparecer aqui."></textarea>
+        <textarea id="summary-output" readonly placeholder="A resposta do Ollama vai aparecer aqui quando houver prompt."></textarea>
       </section>
     </main>
 

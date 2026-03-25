@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import os
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from time import perf_counter
 from typing import Callable
 
 import ctranslate2
@@ -13,6 +14,7 @@ from app.services.media_converter import get_media_duration, split_audio_chunks
 
 
 SUPPORTED_MODELS = ("tiny", "base", "small", "medium", "large-v3")
+TRANSCRIPTION_MODES = ("fast", "quality")
 LONG_AUDIO_THRESHOLD_SECONDS = 10 * 60
 CHUNK_SECONDS = 120
 MAX_PARALLEL_WORKERS = 4
@@ -60,6 +62,28 @@ def choose_model_for_duration(duration_seconds: float, device: str) -> str:
     return "base"
 
 
+def detect_transcription_mode(duration_seconds: float, device: str) -> str:
+    if device == "cpu" and duration_seconds >= 35 * 60:
+        return "fast"
+    if device == "cpu" and duration_seconds <= 8 * 60:
+        return "quality"
+    if device == "gpu" and duration_seconds <= 60 * 60:
+        return "quality"
+    return "fast" if duration_seconds >= 2 * 60 * 60 else "quality"
+
+
+def resolve_model_choice(duration_seconds: float, device: str, detected_mode: str) -> str:
+    if detected_mode not in TRANSCRIPTION_MODES:
+        raise ValueError(f"Modo de transcricao invalido: {detected_mode}")
+
+    if detected_mode == "fast":
+        return "tiny" if device == "cpu" else "base"
+
+    if device == "gpu":
+        return "large-v3" if duration_seconds <= 60 * 60 else "medium"
+    return "medium" if duration_seconds <= 45 * 60 else "small"
+
+
 def transcribe_single_file(audio_path: Path, model_size: str = "small", start_offset: float = 0.0) -> dict:
     model = get_thread_model(model_size)
     segments, info = model.transcribe(
@@ -91,13 +115,30 @@ def transcribe_single_file(audio_path: Path, model_size: str = "small", start_of
     }
 
 
-def transcribe_file(audio_path: Path, progress_callback: ProgressCallback | None = None) -> dict:
+def transcribe_chunk(chunk_path: Path, model_size: str, chunk_index: int) -> dict:
+    started_at = perf_counter()
+    result = transcribe_single_file(
+        chunk_path,
+        model_size=model_size,
+        start_offset=chunk_index * CHUNK_SECONDS,
+    )
+    result["chunk_index"] = chunk_index
+    result["chunk_name"] = chunk_path.name
+    result["elapsed_seconds"] = round(perf_counter() - started_at, 2)
+    return result
+
+
+def transcribe_file(
+    audio_path: Path,
+    progress_callback: ProgressCallback | None = None,
+) -> dict:
     duration = get_media_duration(audio_path)
     device = detect_runtime_device()
-    model_size = choose_model_for_duration(duration, device)
+    transcription_mode = detect_transcription_mode(duration, device)
+    model_size = resolve_model_choice(duration, device, transcription_mode)
 
     if progress_callback:
-        progress_callback(38, "Audio convertido. Preparando transcricao automatica.")
+        progress_callback(38, f"Audio convertido. Preparando transcricao no modo {transcription_mode}.")
 
     if duration <= LONG_AUDIO_THRESHOLD_SECONDS:
         if progress_callback:
@@ -105,6 +146,7 @@ def transcribe_file(audio_path: Path, progress_callback: ProgressCallback | None
 
         result = transcribe_single_file(audio_path, model_size=model_size)
         result["model"] = model_size
+        result["transcription_mode"] = transcription_mode
         return result
 
     chunk_paths = split_audio_chunks(audio_path, audio_path.parent, chunk_seconds=CHUNK_SECONDS)
@@ -118,24 +160,36 @@ def transcribe_file(audio_path: Path, progress_callback: ProgressCallback | None
     workers = max(1, min(len(chunk_paths), worker_cap, os.cpu_count() or 1))
 
     partial_results = []
+    chunk_metrics = []
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = [
-            executor.submit(
-                transcribe_single_file,
-                chunk_path,
-                model_size,
-                index * CHUNK_SECONDS,
-            )
+        futures = {
+            executor.submit(transcribe_chunk, chunk_path, model_size, index): index
             for index, chunk_path in enumerate(chunk_paths)
-        ]
-        for index, future in enumerate(futures, start=1):
-            partial_results.append(future.result())
+        }
+        completed = 0
+        for future in as_completed(futures):
+            result = future.result()
+            partial_results.append(result)
+            chunk_metrics.append(
+                {
+                    "chunk_index": result["chunk_index"],
+                    "chunk_name": result["chunk_name"],
+                    "elapsed_seconds": result["elapsed_seconds"],
+                }
+            )
+            completed += 1
             if progress_callback:
-                chunk_progress = 55 + int((index / len(chunk_paths)) * 35)
+                chunk_progress = 55 + int((completed / len(chunk_paths)) * 35)
                 progress_callback(
                     chunk_progress,
-                    f"Transcrevendo blocos em paralelo: {index}/{len(chunk_paths)} concluidos com modelo {model_size}.",
+                    (
+                        f"Transcrevendo blocos em paralelo: {completed}/{len(chunk_paths)} concluidos "
+                        f"com modelo {model_size} em {workers} workers."
+                    ),
                 )
+
+    partial_results.sort(key=lambda item: item["chunk_index"])
+    chunk_metrics.sort(key=lambda item: item["chunk_index"])
 
     merged_segments = []
     merged_text_parts = []
@@ -149,7 +203,11 @@ def transcribe_file(audio_path: Path, progress_callback: ProgressCallback | None
         "device": device,
         "language": language,
         "model": model_size,
+        "transcription_mode": transcription_mode,
         "duration": round(duration, 2),
+        "parallel_workers": workers,
+        "chunk_count": len(chunk_paths),
+        "chunk_metrics": chunk_metrics,
         "segments": merged_segments,
         "text": " ".join(merged_text_parts).strip(),
     }

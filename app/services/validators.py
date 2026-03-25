@@ -41,3 +41,25 @@ def validate_upload(upload: UploadFile) -> None:
     upload.file.seek(0)
     if size > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="Arquivo muito grande. Limite atual: 1 GB.")
+
+
+def validate_transcription_source(media_file: UploadFile | None, youtube_url: str) -> None:
+    has_file = media_file is not None and bool(media_file.filename)
+    has_url = bool((youtube_url or "").strip())
+
+    if has_file == has_url:
+        raise HTTPException(
+            status_code=400,
+            detail="Envie um arquivo ou um link do YouTube. Escolha apenas uma fonte por vez.",
+        )
+
+
+def validate_summary_files(uploads: list[UploadFile] | None) -> list[UploadFile]:
+    files = [upload for upload in (uploads or []) if upload and upload.filename]
+    for upload in files:
+        upload.file.seek(0, 2)
+        size = upload.file.tell()
+        upload.file.seek(0)
+        if size > MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail=f"Anexo muito grande: {upload.filename}")
+    return files
